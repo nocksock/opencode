@@ -25,13 +25,28 @@ export function DialogMessage(props: {
       description: action.description,
       category: "Message Actions",
       onSelect: async (dialog: any) => {
-        // Note: This will need SDK update after server endpoint is deployed
-        // For now, this is a placeholder for the integration
-        // await sdk.client.session.message.action({
-        //   sessionID: props.sessionID,
-        //   messageID: props.messageID,
-        //   label: action.label,
-        // })
+        // Execute message action via direct API call (SDK v2 doesn't have this endpoint yet)
+        try {
+          const url = `${sdk.baseUrl}/session/${props.sessionID}/message/${props.messageID}/action`
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: action.label }),
+          })
+
+          console.log("Response status:", response.status)
+
+          if (!response.ok) {
+            const text = await response.text()
+            console.error("Message action failed:", text)
+          } else {
+            const result = await response.json()
+            console.log("Message action result:", result)
+          }
+        } catch (error) {
+          console.error("Message action error:", error)
+        }
         dialog.clear()
       },
     }))

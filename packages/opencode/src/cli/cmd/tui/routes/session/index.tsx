@@ -204,11 +204,9 @@ export function Session() {
       })
       if (response) {
         sdk.client.permission.respond({
-          path: {
-            permissionID: first.id,
-            sessionID: route.sessionID,
-          },
-          body: { response },
+          permissionID: first.id,
+          sessionID: route.sessionID,
+          response: response,
         })
       }
     }
@@ -253,7 +251,7 @@ export function Session() {
             onSelect: async (dialog: any) => {
               await sdk.client.session
                 .share({
-                  path: { sessionID: route.sessionID },
+                  sessionID: route.sessionID,
                 })
                 .then((res) =>
                   Clipboard.copy(res.data!.share!.url).catch(() =>
@@ -311,11 +309,9 @@ export function Session() {
           return
         }
         sdk.client.session.summarize({
-          path: { sessionID: route.sessionID },
-          body: {
-            modelID: selectedModel.modelID,
-            providerID: selectedModel.providerID,
-          },
+          sessionID: route.sessionID,
+          modelID: selectedModel.modelID,
+          providerID: selectedModel.providerID,
         })
         dialog.clear()
       },
@@ -328,7 +324,7 @@ export function Session() {
       category: "Session",
       onSelect: (dialog) => {
         sdk.client.session.unshare({
-          path: { sessionID: route.sessionID },
+          sessionID: route.sessionID,
         })
         dialog.clear()
       },
@@ -340,15 +336,14 @@ export function Session() {
       category: "Session",
       onSelect: async (dialog) => {
         const status = sync.data.session_status[route.sessionID]
-        if (status?.type !== "idle")
-          await sdk.client.session.abort({ path: { sessionID: route.sessionID } }).catch(() => {})
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
         const revert = session().revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
         sdk.client.session
           .revert({
-            path: { sessionID: route.sessionID },
-            body: { messageID: message.id },
+            sessionID: route.sessionID,
+            messageID: message.id,
           })
           .then(() => {
             toBottom()
@@ -382,14 +377,14 @@ export function Session() {
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
         if (!message) {
           sdk.client.session.unrevert({
-            path: { sessionID: route.sessionID },
+            sessionID: route.sessionID,
           })
           prompt.set({ input: "", parts: [] })
           return
         }
         sdk.client.session.revert({
-          path: { sessionID: route.sessionID },
-          body: { messageID: message.id },
+          sessionID: route.sessionID,
+          messageID: message.id,
         })
       },
     },
@@ -769,31 +764,33 @@ export function Session() {
       description: action.description,
       category: "Message Actions",
       onSelect: async (dialog: any) => {
-        // Get most recent message
         const msgs = messages()
         const lastMsg = msgs[msgs.length - 1]
 
         if (!lastMsg) {
-          toast.show({
-            message: "No messages in session",
-            variant: "error",
-          })
+          toast.show({ message: "No messages in session", variant: "error" })
           dialog.clear()
           return
         }
 
-        // Note: This will need SDK update after server endpoint is deployed
-        // For now, this is a placeholder for the integration
-        // await sdk.client.session.message.action({
-        //   sessionID: route.sessionID,
-        //   messageID: lastMsg.id,
-        //   label: action.label,
-        // })
+        try {
+          const url = `${sdk.baseUrl}/session/${route.sessionID}/message/${lastMsg.id}/action`
 
-        toast.show({
-          message: `Message action "${action.label}" triggered (SDK update needed)`,
-          variant: "info",
-        })
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: action.label }),
+          })
+
+          if (!response.ok) {
+            const text = await response.text()
+            toast.show({ message: `Action failed: ${text.slice(0, 50)}`, variant: "error" })
+          } else {
+            toast.show({ message: `Action "${action.label}" executed`, variant: "success" })
+          }
+        } catch (error) {
+          toast.show({ message: `Error: ${String(error).slice(0, 100)}`, variant: "error" })
+        }
         dialog.clear()
       },
     })),
