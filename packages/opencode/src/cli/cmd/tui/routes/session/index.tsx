@@ -757,6 +757,43 @@ export function Session() {
         dialog.clear()
       },
     },
+    // Custom message actions from config
+    ...((sync.data.config as any).messageActions ?? []).map((action: any) => ({
+      title: action.label,
+      value: `message.action.${action.label}`,
+      description: action.description,
+      category: "Message Actions",
+      onSelect: async (dialog: any) => {
+        const msgs = messages()
+        const lastMsg = msgs[msgs.length - 1]
+
+        if (!lastMsg) {
+          toast.show({ message: "No messages in session", variant: "error" })
+          dialog.clear()
+          return
+        }
+
+        try {
+          const url = `${sdk.baseUrl}/session/${route.sessionID}/message/${lastMsg.id}/action`
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: action.label }),
+          })
+
+          if (!response.ok) {
+            const text = await response.text()
+            toast.show({ message: `Action failed: ${text.slice(0, 50)}`, variant: "error" })
+          } else {
+            toast.show({ message: `Action "${action.label}" executed`, variant: "success" })
+          }
+        } catch (error) {
+          toast.show({ message: `Error: ${String(error).slice(0, 100)}`, variant: "error" })
+        }
+        dialog.clear()
+      },
+    })),
   ])
 
   const revertInfo = createMemo(() => session()?.revert)

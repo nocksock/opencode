@@ -57,7 +57,7 @@ export function DialogMcp() {
         try {
           await local.mcp.toggle(option.value)
           // Refresh MCP status from server
-          const status = await sdk.client.mcp.status()
+          const status = await sdk.client.mcp.status({ path: { name: "" } })
           if (status.data) {
             sync.set("mcp", status.data)
           } else {

@@ -239,7 +239,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "lsp.updated": {
-          sdk.client.lsp.status().then((x) => setStore("lsp", x.data!))
+          sdk.client.lsp.status({ path: { name: "" } }).then((x) => setStore("lsp", x.data!))
           break
         }
 
@@ -255,37 +255,37 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     async function bootstrap() {
       // blocking
       await Promise.all([
-        sdk.client.config.providers({}, { throwOnError: true }).then((x) => {
+        sdk.client.config.providers({ path: { name: "" }, throwOnError: true }).then((x) => {
           batch(() => {
             setStore("provider", x.data!.providers)
             setStore("provider_default", x.data!.default)
           })
         }),
-        sdk.client.provider.list({}, { throwOnError: true }).then((x) => {
+        sdk.client.provider.list({ path: { name: "" }, throwOnError: true }).then((x) => {
           batch(() => {
             setStore("provider_next", x.data!)
           })
         }),
-        sdk.client.app.agents({}, { throwOnError: true }).then((x) => setStore("agent", x.data ?? [])),
-        sdk.client.config.get({}, { throwOnError: true }).then((x) => setStore("config", x.data!)),
+        sdk.client.app.agents({ path: { name: "" }, throwOnError: true }).then((x) => setStore("agent", x.data ?? [])),
+        sdk.client.config.get({ path: { name: "" }, throwOnError: true }).then((x) => setStore("config", x.data!)),
       ])
         .then(() => {
           if (store.status !== "complete") setStore("status", "partial")
           // non-blocking
           Promise.all([
-            sdk.client.session.list().then((x) =>
+            sdk.client.session.list({ path: { name: "" } }).then((x) =>
               setStore(
                 "session",
                 (x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id)),
               ),
             ),
-            sdk.client.command.list().then((x) => setStore("command", x.data ?? [])),
-            sdk.client.lsp.status().then((x) => setStore("lsp", x.data!)),
-            sdk.client.mcp.status().then((x) => setStore("mcp", x.data!)),
-            sdk.client.formatter.status().then((x) => setStore("formatter", x.data!)),
-            sdk.client.session.status().then((x) => setStore("session_status", x.data!)),
-            sdk.client.provider.auth().then((x) => setStore("provider_auth", x.data ?? {})),
-            sdk.client.vcs.get().then((x) => setStore("vcs", x.data)),
+            sdk.client.command.list({ path: { name: "" } }).then((x) => setStore("command", x.data ?? [])),
+            sdk.client.lsp.status({ path: { name: "" } }).then((x) => setStore("lsp", x.data!)),
+            sdk.client.mcp.status({ path: { name: "" } }).then((x) => setStore("mcp", x.data!)),
+            sdk.client.formatter.status({ path: { name: "" } }).then((x) => setStore("formatter", x.data!)),
+            sdk.client.session.status({ path: { name: "" } }).then((x) => setStore("session_status", x.data!)),
+            sdk.client.provider.auth({ path: { name: "" } }).then((x) => setStore("provider_auth", x.data ?? {})),
+            sdk.client.vcs.get({ path: { name: "" } }).then((x) => setStore("vcs", x.data)),
           ]).then(() => {
             setStore("status", "complete")
           })
@@ -333,10 +333,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         async sync(sessionID: string) {
           if (fullSyncedSessions.has(sessionID)) return
           const [session, messages, todo, diff] = await Promise.all([
-            sdk.client.session.get({ sessionID }, { throwOnError: true }),
-            sdk.client.session.messages({ sessionID, limit: 100 }),
-            sdk.client.session.todo({ sessionID }),
-            sdk.client.session.diff({ sessionID }),
+            sdk.client.session.get({ path: { sessionID }, throwOnError: true }),
+            sdk.client.session.messages({ path: { sessionID }, query: { limit: 100 } }),
+            sdk.client.session.todo({ path: { sessionID } }),
+            sdk.client.session.diff({ path: { sessionID } }),
           ])
           setStore(
             produce((draft) => {

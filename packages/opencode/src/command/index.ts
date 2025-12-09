@@ -5,6 +5,7 @@ import { Bus } from "../bus"
 import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+import PROMPT_FORK from "./template/fork.txt"
 
 export namespace Command {
   export const Event = {
@@ -36,6 +37,7 @@ export namespace Command {
   export const Default = {
     INIT: "init",
     REVIEW: "review",
+    FORK: "fork",
   } as const
 
   const state = Instance.state(async () => {
@@ -52,6 +54,11 @@ export namespace Command {
         description: "review changes [commit|branch|pr], defaults to uncommitted",
         template: PROMPT_REVIEW.replace("${path}", Instance.worktree),
         subtask: true,
+      },
+      [Default.FORK]: {
+        name: Default.FORK,
+        description: "fork session and optionally send a message",
+        template: PROMPT_FORK,
       },
     }
 

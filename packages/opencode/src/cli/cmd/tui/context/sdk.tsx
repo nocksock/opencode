@@ -20,12 +20,10 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     onMount(async () => {
       while (true) {
         if (abort.signal.aborted) break
-        const events = await sdk.event.subscribe(
-          {},
-          {
-            signal: abort.signal,
-          },
-        )
+        const events = await sdk.event.subscribe({
+          path: { name: "" },
+          signal: abort.signal,
+        })
         let queue: Event[] = []
         let timer: Timer | undefined
         let last = 0
@@ -70,6 +68,6 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       abort.abort()
     })
 
-    return { client: sdk, event: emitter }
+    return { client: sdk, event: emitter, baseUrl: props.url }
   },
 })

@@ -1347,6 +1347,61 @@ export namespace SessionPrompt {
   export async function command(input: CommandInput) {
     log.info("command", input)
     const command = await Command.get(input.command)
+
+    // Special handling for /fork command - bypass normal command flow
+    if (input.command === Command.Default.FORK) {
+      const forkedSession = await Session.fork({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+      })
+
+      // If arguments provided, send them as first message in forked session
+      if (input.arguments.trim()) {
+        const result = await prompt({
+          sessionID: forkedSession.id,
+          parts: [
+            {
+              type: "text",
+              text: input.arguments.trim(),
+              synthetic: false,
+            },
+          ],
+        })
+
+        // Publish fork event
+        Bus.publish(Command.Event.Executed, {
+          name: input.command,
+          sessionID: forkedSession.id,
+          arguments: input.arguments,
+          messageID: result.info.id,
+        })
+
+        return result
+      }
+
+      // No arguments - create a simple user message in the forked session
+      // This allows the TUI to navigate to it
+      const result = await createUserMessage({
+        sessionID: forkedSession.id,
+        parts: [
+          {
+            type: "text",
+            text: "Session forked",
+            synthetic: true,
+          },
+        ],
+      })
+
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: forkedSession.id,
+        arguments: input.arguments,
+        messageID: result.info.id,
+      })
+
+      return result
+    }
+
     const agentName = command.agent ?? input.agent ?? "build"
 
     const raw = input.arguments.match(argsRegex) ?? []

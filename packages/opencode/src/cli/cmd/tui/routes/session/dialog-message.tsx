@@ -16,6 +16,42 @@ export function DialogMessage(props: {
   const message = createMemo(() => sync.data.message[props.sessionID]?.find((x) => x.id === props.messageID))
   const route = useRoute()
 
+  // Load custom message actions from config
+  const customActions = createMemo(() => {
+    const messageActions = (sync.data.config as any).messageActions ?? []
+    return messageActions.map((action: any) => ({
+      title: action.label,
+      value: `message.action.${action.label}`,
+      description: action.description,
+      category: "Message Actions",
+      onSelect: async (dialog: any) => {
+        // Execute message action via direct API call (SDK v2 doesn't have this endpoint yet)
+        try {
+          const url = `${sdk.baseUrl}/session/${props.sessionID}/message/${props.messageID}/action`
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: action.label }),
+          })
+
+          console.log("Response status:", response.status)
+
+          if (!response.ok) {
+            const text = await response.text()
+            console.error("Message action failed:", text)
+          } else {
+            const result = await response.json()
+            console.log("Message action result:", result)
+          }
+        } catch (error) {
+          console.error("Message action error:", error)
+        }
+        dialog.clear()
+      },
+    }))
+  })
+
   return (
     <DialogSelect
       title="Message Actions"
@@ -29,8 +65,8 @@ export function DialogMessage(props: {
             if (!msg) return
 
             sdk.client.session.revert({
-              sessionID: props.sessionID,
-              messageID: msg.id,
+              path: { sessionID: props.sessionID },
+              body: { messageID: msg.id },
             })
 
             if (props.setPrompt) {
@@ -77,8 +113,8 @@ export function DialogMessage(props: {
           description: "create a new session",
           onSelect: async (dialog) => {
             const result = await sdk.client.session.fork({
-              sessionID: props.sessionID,
-              messageID: props.messageID,
+              path: { sessionID: props.sessionID },
+              body: { messageID: props.messageID },
             })
             route.navigate({
               sessionID: result.data!.id,
@@ -97,6 +133,7 @@ export function DialogMessage(props: {
             dialog.clear()
           },
         },
+        ...customActions(),
       ]}
     />
   )

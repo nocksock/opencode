@@ -834,6 +834,66 @@ export namespace Server {
         },
       )
       .post(
+        "/session/:sessionID/message/:messageID/action",
+        describeRoute({
+          summary: "Execute message action",
+          description: "Execute a configured message action on a specific message.",
+          operationId: "message.action",
+          responses: {
+            200: {
+              description: "Action executed successfully",
+              content: {
+                "application/json": {
+                  schema: resolver(
+                    z.object({
+                      success: z.boolean(),
+                      exitCode: z.number(),
+                      stdout: z.string(),
+                      stderr: z.string(),
+                      error: z.string().optional(),
+                    }),
+                  ),
+                },
+              },
+            },
+            ...errors(400, 404),
+          },
+        }),
+        validator(
+          "param",
+          z.object({
+            sessionID: z.string(),
+            messageID: z.string(),
+          }),
+        ),
+        validator(
+          "json",
+          z.object({
+            label: z.string(),
+          }),
+        ),
+        async (c) => {
+          const { sessionID, messageID } = c.req.valid("param")
+          const { label } = c.req.valid("json")
+
+          const { MessageAction } = await import("../message-action")
+          const actions = await MessageAction.list()
+          const action = actions.find((a) => a.label === label)
+
+          if (!action) {
+            return c.json({ error: "Action not found" }, 404)
+          }
+
+          const result = await MessageAction.execute({
+            sessionID,
+            messageID,
+            action,
+          })
+
+          return c.json(result)
+        },
+      )
+      .post(
         "/session/:sessionID/abort",
         describeRoute({
           summary: "Abort session",

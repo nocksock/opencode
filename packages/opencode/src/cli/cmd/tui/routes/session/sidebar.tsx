@@ -19,6 +19,8 @@ export function Sidebar(props: { sessionID: string }) {
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
 
   const [expanded, setExpanded] = createStore({
+    agents: true,
+    sessions: true,
     mcp: true,
     diff: true,
     todo: true,
@@ -27,6 +29,25 @@ export function Sidebar(props: { sessionID: string }) {
 
   // Sort MCP servers alphabetically for consistent display order
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+
+  // Agents list sorted alphabetically
+  const agents = createMemo(() => sync.data.agent.toSorted((a, b) => a.name.localeCompare(b.name)))
+
+  // Sessions organized by hierarchy (parent + children)
+  const sessionsHierarchy = createMemo(() => {
+    const sessions = sync.data.session
+    const parents = sessions.filter((s) => !s.parentID)
+    const childMap = new Map<string, typeof sessions>()
+
+    sessions.forEach((s) => {
+      if (s.parentID) {
+        if (!childMap.has(s.parentID)) childMap.set(s.parentID, [])
+        childMap.get(s.parentID)!.push(s)
+      }
+    })
+
+    return { parents, childMap }
+  })
 
   const cost = createMemo(() => {
     const total = messages().reduce((sum, x) => sum + (x.role === "assistant" ? x.cost : 0), 0)
@@ -82,6 +103,101 @@ export function Sidebar(props: { sessionID: string }) {
               <text fg={theme.textMuted}>{context()?.tokens ?? 0} tokens</text>
               <text fg={theme.textMuted}>{context()?.percentage ?? 0}% used</text>
               <text fg={theme.textMuted}>{cost()} spent</text>
+            </box>
+            <box>
+              <box
+                flexDirection="row"
+                gap={1}
+                onMouseDown={() => agents().length > 2 && setExpanded("agents", !expanded.agents)}
+              >
+                <Show when={agents().length > 2}>
+                  <text fg={theme.text}>{expanded.agents ? "▼" : "▶"}</text>
+                </Show>
+                <text fg={theme.text}>
+                  <b>Agents ({agents().length})</b>
+                </text>
+              </box>
+              <Show when={agents().length <= 2 || expanded.agents}>
+                <Show when={agents().length === 0}>
+                  <text fg={theme.textMuted}>No agents configured</text>
+                </Show>
+                <For each={agents()}>
+                  {(agent) => (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={agent.color || (agent.builtIn ? theme.text : theme.textMuted)} flexShrink={0}>
+                        [{agent.mode === "primary" ? "P" : agent.mode === "subagent" ? "S" : "A"}]
+                      </text>
+                      <text fg={agent.color || (agent.builtIn ? theme.text : theme.textMuted)} wrapMode="word">
+                        {agent.name}
+                      </text>
+                    </box>
+                  )}
+                </For>
+              </Show>
+            </box>
+            <box>
+              <box
+                flexDirection="row"
+                gap={1}
+                onMouseDown={() => sync.data.session.length > 2 && setExpanded("sessions", !expanded.sessions)}
+              >
+                <Show when={sync.data.session.length > 2}>
+                  <text fg={theme.text}>{expanded.sessions ? "▼" : "▶"}</text>
+                </Show>
+                <text fg={theme.text}>
+                  <b>Sessions ({sync.data.session.length})</b>
+                </text>
+              </box>
+              <Show when={sync.data.session.length <= 2 || expanded.sessions}>
+                <For each={sessionsHierarchy().parents}>
+                  {(parent) => {
+                    const children = sessionsHierarchy().childMap.get(parent.id) || []
+                    const isCurrent = parent.id === props.sessionID
+                    const status = sync.data.session_status[parent.id]
+                    const truncateTitle = (title: string, maxLen: number) =>
+                      title.length > maxLen ? title.slice(0, maxLen) + "..." : title
+
+                    return (
+                      <>
+                        <box flexDirection="row" gap={1}>
+                          <text fg={isCurrent ? theme.text : theme.textMuted} flexShrink={0}>
+                            {status?.type === "busy" || status?.type === "retry" ? "⚙" : "•"}
+                          </text>
+                          <text fg={isCurrent ? theme.text : theme.textMuted} wrapMode="word">
+                            {isCurrent ? <b>{truncateTitle(parent.title, 25)}</b> : truncateTitle(parent.title, 25)}
+                          </text>
+                        </box>
+                        <For each={children}>
+                          {(child) => {
+                            const isCurrentChild = child.id === props.sessionID
+                            const childStatus = sync.data.session_status[child.id]
+
+                            return (
+                              <box flexDirection="row" gap={1} paddingLeft={2}>
+                                <text fg={isCurrentChild ? theme.text : theme.textMuted} flexShrink={0}>
+                                  └─
+                                </text>
+                                <Show when={childStatus?.type === "busy" || childStatus?.type === "retry"}>
+                                  <text fg={isCurrentChild ? theme.text : theme.textMuted} flexShrink={0}>
+                                    ⚙
+                                  </text>
+                                </Show>
+                                <text fg={isCurrentChild ? theme.text : theme.textMuted} wrapMode="word">
+                                  {isCurrentChild ? (
+                                    <b>{truncateTitle(child.title, 22)}</b>
+                                  ) : (
+                                    truncateTitle(child.title, 22)
+                                  )}
+                                </text>
+                              </box>
+                            )
+                          }}
+                        </For>
+                      </>
+                    )
+                  }}
+                </For>
+              </Show>
             </box>
             <Show when={mcpEntries().length > 0}>
               <box>

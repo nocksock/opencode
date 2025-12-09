@@ -369,6 +369,22 @@ export namespace Config {
   export const Mcp = z.discriminatedUnion("type", [McpLocal, McpRemote])
   export type Mcp = z.infer<typeof Mcp>
 
+  export const MessageAction = z
+    .object({
+      command: z.string().array().min(1).describe("Command and arguments to execute"),
+      label: z.string().describe("Display label in UI"),
+      description: z.string().optional().describe("Optional description shown in command list"),
+      environment: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Environment variables to set when running the command"),
+    })
+    .strict()
+    .meta({
+      ref: "MessageAction",
+    })
+  export type MessageAction = z.infer<typeof MessageAction>
+
   export const Permission = z.enum(["ask", "allow", "deny"])
   export type Permission = z.infer<typeof Permission>
 
@@ -604,6 +620,10 @@ export namespace Config {
         .optional()
         .describe("Custom provider configurations and model overrides"),
       mcp: z.record(z.string(), Mcp).optional().describe("MCP (Model Context Protocol) server configurations"),
+      messageActions: z
+        .array(MessageAction)
+        .optional()
+        .describe("Custom message actions that receive session-id and message-id"),
       formatter: z
         .union([
           z.literal(false),
