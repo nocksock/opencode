@@ -5,7 +5,6 @@ import { Config } from "../config/config"
 import { fn } from "../util/fn"
 import { Log } from "../util/log"
 import { spawn } from "child_process"
-import { promisify } from "util"
 
 export namespace MessageAction {
   const log = Log.create({ service: "message-action" })

@@ -16,6 +16,27 @@ export function DialogMessage(props: {
   const message = createMemo(() => sync.data.message[props.sessionID]?.find((x) => x.id === props.messageID))
   const route = useRoute()
 
+  // Load custom message actions from config
+  const customActions = createMemo(() => {
+    const messageActions = (sync.data.config as any).messageActions ?? []
+    return messageActions.map((action: any) => ({
+      title: action.label,
+      value: `message.action.${action.label}`,
+      description: action.description,
+      category: "Message Actions",
+      onSelect: async (dialog: any) => {
+        // Note: This will need SDK update after server endpoint is deployed
+        // For now, this is a placeholder for the integration
+        // await sdk.client.session.message.action({
+        //   sessionID: props.sessionID,
+        //   messageID: props.messageID,
+        //   label: action.label,
+        // })
+        dialog.clear()
+      },
+    }))
+  })
+
   return (
     <DialogSelect
       title="Message Actions"
@@ -97,6 +118,7 @@ export function DialogMessage(props: {
             dialog.clear()
           },
         },
+        ...customActions(),
       ]}
     />
   )

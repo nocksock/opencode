@@ -757,6 +757,41 @@ export function Session() {
         dialog.clear()
       },
     },
+    // Custom message actions from config
+    ...((sync.data.config as any).messageActions ?? []).map((action: any) => ({
+      title: action.label,
+      value: `message.action.${action.label}`,
+      description: action.description,
+      category: "Message Actions",
+      onSelect: async (dialog: any) => {
+        // Get most recent message
+        const msgs = messages()
+        const lastMsg = msgs[msgs.length - 1]
+
+        if (!lastMsg) {
+          toast.show({
+            message: "No messages in session",
+            variant: "error",
+          })
+          dialog.clear()
+          return
+        }
+
+        // Note: This will need SDK update after server endpoint is deployed
+        // For now, this is a placeholder for the integration
+        // await sdk.client.session.message.action({
+        //   sessionID: route.sessionID,
+        //   messageID: lastMsg.id,
+        //   label: action.label,
+        // })
+
+        toast.show({
+          message: `Message action "${action.label}" triggered (SDK update needed)`,
+          variant: "info",
+        })
+        dialog.clear()
+      },
+    })),
   ])
 
   const revertInfo = createMemo(() => session()?.revert)

@@ -1,0 +1,9 @@
+Fork the current session at the most recent message.
+
+---
+
+Arguments: $ARGUMENTS
+
+---
+
+If arguments are provided, those will be sent as the first message in the new forked session after forking.
