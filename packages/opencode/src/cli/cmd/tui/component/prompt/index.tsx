@@ -170,7 +170,7 @@ export function Prompt(props: PromptProps) {
 
           if (store.interrupt >= 2) {
             sdk.client.session.abort({
-              sessionID: props.sessionID,
+              path: { sessionID: props.sessionID },
             })
             setStore("interrupt", 0)
           }
@@ -445,50 +445,104 @@ export function Prompt(props: PromptProps) {
 
     if (store.mode === "shell") {
       sdk.client.session.shell({
-        sessionID,
-        agent: local.agent.current().name,
-        model: {
-          providerID: selectedModel.providerID,
-          modelID: selectedModel.modelID,
+        path: { sessionID },
+        body: {
+          agent: local.agent.current().name,
+          model: {
+            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID,
+          },
+          command: inputText,
         },
-        command: inputText,
       })
       setStore("mode", "normal")
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
         const command = inputText.split(" ")[0].slice(1)
-        console.log(command)
         return sync.data.command.some((x) => x.name === command)
       })
     ) {
       let [command, ...args] = inputText.split(" ")
-      sdk.client.session.command({
-        sessionID,
-        command: command.slice(1),
-        arguments: args.join(" "),
-        agent: local.agent.current().name,
-        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-        messageID,
-      })
+      const commandName = command.slice(1)
+
+      // Special handling for fork command - navigate immediately
+      if (commandName === "fork") {
+        const arguments_ = args.join(" ")
+        // Fork the session
+        sdk.client.session
+          .fork({
+            path: { sessionID },
+            body: { messageID },
+          })
+          .then((result) => {
+            if (result.data) {
+              const forkedSessionID = result.data.id
+              // Navigate immediately to the forked session
+              route.navigate({
+                sessionID: forkedSessionID,
+                type: "session",
+              })
+
+              // If arguments provided, send them as first message in forked session
+              if (arguments_.trim()) {
+                sdk.client.session.prompt({
+                  path: { sessionID: forkedSessionID },
+                  body: {
+                    messageID: Identifier.ascending("message"),
+                    agent: local.agent.current().name,
+                    model: selectedModel,
+                    parts: [
+                      {
+                        id: Identifier.ascending("part"),
+                        type: "text",
+                        text: arguments_.trim(),
+                      },
+                    ],
+                  },
+                })
+              }
+            }
+          })
+          .catch((err) => {
+            console.error("Fork failed:", err)
+          })
+      } else {
+        // Other commands - fire and forget
+        sdk.client.session
+          .command({
+            path: { sessionID },
+            body: {
+              command: commandName,
+              arguments: args.join(" "),
+              agent: local.agent.current().name,
+              model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+              messageID,
+            },
+          })
+          .catch((err) => {
+            console.error("Command failed:", err)
+          })
+      }
     } else {
       sdk.client.session.prompt({
-        sessionID,
-        ...selectedModel,
-        messageID,
-        agent: local.agent.current().name,
-        model: selectedModel,
-        parts: [
-          {
-            id: Identifier.ascending("part"),
-            type: "text",
-            text: inputText,
-          },
-          ...nonTextParts.map((x) => ({
-            id: Identifier.ascending("part"),
-            ...x,
-          })),
-        ],
+        path: { sessionID },
+        body: {
+          messageID,
+          agent: local.agent.current().name,
+          model: selectedModel,
+          parts: [
+            {
+              id: Identifier.ascending("part"),
+              type: "text",
+              text: inputText,
+            },
+            ...nonTextParts.map((x) => ({
+              id: Identifier.ascending("part"),
+              ...x,
+            })),
+          ],
+        },
       })
     }
     history.append(store.prompt)
@@ -656,7 +710,11 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
           >
             <textarea
-              placeholder={props.sessionID ? undefined : t`${fg(theme.placeholderText)(`Ask anything... "${PLACEHOLDERS[store.placeholder]}"`)}`}
+              placeholder={
+                props.sessionID
+                  ? undefined
+                  : t`${fg(theme.placeholderText)(`Ask anything... "${PLACEHOLDERS[store.placeholder]}"`)}`
+              }
               textColor={theme.text}
               focusedTextColor={theme.text}
               minHeight={1}

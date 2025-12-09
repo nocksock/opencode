@@ -50,8 +50,8 @@ export function DialogMessage(props: {
             if (!msg) return
 
             sdk.client.session.revert({
-              sessionID: props.sessionID,
-              messageID: msg.id,
+              path: { sessionID: props.sessionID },
+              body: { messageID: msg.id },
             })
 
             if (props.setPrompt) {
@@ -98,8 +98,8 @@ export function DialogMessage(props: {
           description: "create a new session",
           onSelect: async (dialog) => {
             const result = await sdk.client.session.fork({
-              sessionID: props.sessionID,
-              messageID: props.messageID,
+              path: { sessionID: props.sessionID },
+              body: { messageID: props.messageID },
             })
             route.navigate({
               sessionID: result.data!.id,

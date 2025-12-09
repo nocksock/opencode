@@ -204,9 +204,11 @@ export function Session() {
       })
       if (response) {
         sdk.client.permission.respond({
-          permissionID: first.id,
-          sessionID: route.sessionID,
-          response: response,
+          path: {
+            permissionID: first.id,
+            sessionID: route.sessionID,
+          },
+          body: { response },
         })
       }
     }
@@ -251,7 +253,7 @@ export function Session() {
             onSelect: async (dialog: any) => {
               await sdk.client.session
                 .share({
-                  sessionID: route.sessionID,
+                  path: { sessionID: route.sessionID },
                 })
                 .then((res) =>
                   Clipboard.copy(res.data!.share!.url).catch(() =>
@@ -309,9 +311,11 @@ export function Session() {
           return
         }
         sdk.client.session.summarize({
-          sessionID: route.sessionID,
-          modelID: selectedModel.modelID,
-          providerID: selectedModel.providerID,
+          path: { sessionID: route.sessionID },
+          body: {
+            modelID: selectedModel.modelID,
+            providerID: selectedModel.providerID,
+          },
         })
         dialog.clear()
       },
@@ -324,7 +328,7 @@ export function Session() {
       category: "Session",
       onSelect: (dialog) => {
         sdk.client.session.unshare({
-          sessionID: route.sessionID,
+          path: { sessionID: route.sessionID },
         })
         dialog.clear()
       },
@@ -336,14 +340,15 @@ export function Session() {
       category: "Session",
       onSelect: async (dialog) => {
         const status = sync.data.session_status[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        if (status?.type !== "idle")
+          await sdk.client.session.abort({ path: { sessionID: route.sessionID } }).catch(() => {})
         const revert = session().revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
         sdk.client.session
           .revert({
-            sessionID: route.sessionID,
-            messageID: message.id,
+            path: { sessionID: route.sessionID },
+            body: { messageID: message.id },
           })
           .then(() => {
             toBottom()
@@ -377,14 +382,14 @@ export function Session() {
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
         if (!message) {
           sdk.client.session.unrevert({
-            sessionID: route.sessionID,
+            path: { sessionID: route.sessionID },
           })
           prompt.set({ input: "", parts: [] })
           return
         }
         sdk.client.session.revert({
-          sessionID: route.sessionID,
-          messageID: message.id,
+          path: { sessionID: route.sessionID },
+          body: { messageID: message.id },
         })
       },
     },
