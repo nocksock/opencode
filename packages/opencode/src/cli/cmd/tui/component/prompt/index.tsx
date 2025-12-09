@@ -656,7 +656,7 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
           >
             <textarea
-              placeholder={props.sessionID ? undefined : t`${fg(theme.placeholderText)("Build anything...")}`}
+              placeholder={props.sessionID ? undefined : t`${fg(theme.placeholderText)(`Ask anything... "${PLACEHOLDERS[store.placeholder]}"`)}`}
               textColor={theme.text}
               focusedTextColor={theme.text}
               minHeight={1}
