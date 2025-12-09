@@ -370,3 +370,156 @@ describe("MessageAction.list", () => {
     })
   })
 })
+
+describe("MessageAction Variable Substitution", () => {
+  test("should substitute variables in command", async () => {
+    await using tmp = await tmpdir()
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const sessionID = "ses_var_test"
+        const messageID = "msg_var_test"
+
+        await Storage.write(["session", Instance.project.id, sessionID], {
+          id: sessionID,
+          projectID: Instance.project.id,
+          directory: tmp.path,
+          title: "Var Test Session",
+          version: "1.0.0",
+          time: { created: Date.now(), updated: Date.now() },
+        })
+
+        const outputFile = path.join(tmp.path, "var-output.txt")
+        const action: MessageAction.Info = {
+          command: ["sh", "-c", `echo "session=$session_id message=$message_id" > ${outputFile}`],
+          label: "Var Test",
+        }
+
+        const result = await MessageAction.execute({
+          sessionID,
+          messageID,
+          action,
+        })
+
+        expect(result.success).toBe(true)
+        const output = await Bun.file(outputFile).text()
+        expect(output.trim()).toBe(`session=${sessionID} message=${messageID}`)
+      },
+    })
+  })
+
+  test("should substitute ${var} syntax", async () => {
+    await using tmp = await tmpdir()
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const sessionID = "ses_brace_test"
+        const messageID = "msg_brace_test"
+
+        await Storage.write(["session", Instance.project.id, sessionID], {
+          id: sessionID,
+          projectID: Instance.project.id,
+          directory: tmp.path,
+          title: "Brace Test",
+          version: "1.0.0",
+          time: { created: Date.now(), updated: Date.now() },
+        })
+
+        const outputFile = path.join(tmp.path, "brace-output.txt")
+        const action: MessageAction.Info = {
+          command: ["sh", "-c", `echo "\${session_id} \${message_id}" > ${outputFile}`],
+          label: "Brace Test",
+        }
+
+        const result = await MessageAction.execute({
+          sessionID,
+          messageID,
+          action,
+        })
+
+        expect(result.success).toBe(true)
+        const output = await Bun.file(outputFile).text()
+        expect(output.trim()).toBe(`${sessionID} ${messageID}`)
+      },
+    })
+  })
+
+  test("should substitute environment variables", async () => {
+    await using tmp = await tmpdir()
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const sessionID = "ses_env_test"
+        const messageID = "msg_env_test"
+
+        await Storage.write(["session", Instance.project.id, sessionID], {
+          id: sessionID,
+          projectID: Instance.project.id,
+          directory: tmp.path,
+          title: "Env Test",
+          version: "1.0.0",
+          time: { created: Date.now(), updated: Date.now() },
+        })
+
+        const outputFile = path.join(tmp.path, "env-output.txt")
+        const action: MessageAction.Info = {
+          command: ["sh", "-c", `echo "$MY_VAR" > ${outputFile}`],
+          label: "Env Test",
+          environment: {
+            MY_VAR: "session=$session_id,message=$message_id",
+          },
+        }
+
+        const result = await MessageAction.execute({
+          sessionID,
+          messageID,
+          action,
+        })
+
+        expect(result.success).toBe(true)
+        const output = await Bun.file(outputFile).text()
+        expect(output.trim()).toBe(`session=${sessionID},message=${messageID}`)
+      },
+    })
+  })
+
+  test("should handle fork command example", async () => {
+    await using tmp = await tmpdir()
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const sessionID = "ses_fork_test"
+        const messageID = "msg_fork_test"
+
+        await Storage.write(["session", Instance.project.id, sessionID], {
+          id: sessionID,
+          projectID: Instance.project.id,
+          directory: tmp.path,
+          title: "Fork Test",
+          version: "1.0.0",
+          time: { created: Date.now(), updated: Date.now() },
+        })
+
+        const outputFile = path.join(tmp.path, "fork-output.txt")
+        const action: MessageAction.Info = {
+          command: ["sh", "-c", `echo "opencode session fork $session_id -m $message_id" > ${outputFile}`],
+          label: "Fork Test",
+        }
+
+        const result = await MessageAction.execute({
+          sessionID,
+          messageID,
+          action,
+        })
+
+        expect(result.success).toBe(true)
+        const output = await Bun.file(outputFile).text()
+        expect(output.trim()).toBe(`opencode session fork ${sessionID} -m ${messageID}`)
+      },
+    })
+  })
+})

@@ -21,6 +21,44 @@ export namespace MessageAction {
     })
   export type Info = z.infer<typeof Info>
 
+  interface VariableContext {
+    session_id: string
+    message_id: string
+    directory: string
+    project_id: string
+    session_title?: string
+    parent_id?: string
+  }
+
+  /**
+   * Substitute variables in a string using the provided context.
+   * Supports both $var and ${var} syntax.
+   * Only substitutes variables that are defined in the context - leaves unknown variables unchanged
+   * for shell expansion. Does not substitute bash positional parameters ($1, $2, etc.) or special
+   * variables ($@, $#, etc.)
+   */
+  function substituteVariables(text: string, context: VariableContext): string {
+    let result = text
+
+    // Replace ${var} syntax first (more specific)
+    // Only match variable names (must start with letter or underscore)
+    // Only replace if the variable exists in context
+    result = result.replace(/\$\{([a-zA-Z_]\w*)\}/g, (match, key) => {
+      const value = context[key as keyof VariableContext]
+      return value !== undefined ? value : match
+    })
+
+    // Replace $var syntax (must come after ${var} to avoid conflicts)
+    // Only match variable names (must start with letter or underscore)
+    // Only replace if the variable exists in context
+    result = result.replace(/\$([a-zA-Z_]\w*)/g, (match, key) => {
+      const value = context[key as keyof VariableContext]
+      return value !== undefined ? value : match
+    })
+
+    return result
+  }
+
   export const ExecuteResult = z.object({
     success: z.boolean(),
     exitCode: z.number(),
@@ -45,19 +83,43 @@ export namespace MessageAction {
       log.info("execute", { sessionID: input.sessionID, messageID: input.messageID, label: input.action.label })
 
       try {
-        // Get session to determine working directory
+        // Get session to determine working directory and build context
         const session = await Session.get(input.sessionID)
 
-        // Build command with session-id and message-id as arguments
-        const commandArgs = [...input.action.command.slice(1), input.sessionID, input.messageID]
+        // Build variable context
+        const context: VariableContext = {
+          session_id: input.sessionID,
+          message_id: input.messageID,
+          directory: session.directory,
+          project_id: session.projectID,
+          session_title: session.title,
+          parent_id: session.parentID,
+        }
+
+        // Substitute variables in command array
+        const substitutedCommand = input.action.command.map((arg) => substituteVariables(arg, context))
+
+        // Build command with session-id and message-id as trailing arguments (backward compatibility)
+        const [command, ...args] = substitutedCommand
+        const commandArgs = [...args, input.sessionID, input.messageID]
+
+        // Substitute variables in environment variables
+        const substitutedEnv = input.action.environment
+          ? Object.fromEntries(
+              Object.entries(input.action.environment).map(([key, value]) => {
+                const substituted = substituteVariables(value, context)
+                return [key, substituted]
+              }),
+            )
+          : undefined
 
         // Execute command
         const result = await new Promise<ExecuteResult>((resolve) => {
-          const proc = spawn(input.action.command[0], commandArgs, {
+          const proc = spawn(command, commandArgs, {
             cwd: session.directory,
             env: {
               ...process.env,
-              ...input.action.environment,
+              ...substitutedEnv,
             },
           })
 

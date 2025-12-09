@@ -22,14 +22,13 @@ describe("Fork Command Navigation E2E", () => {
         const server = Server.listen({ port, hostname: "127.0.0.1" })
 
         try {
-          const sdk = await createOpencode({
-            port,
-            hostname: "127.0.0.1",
+          const sdk = createOpencodeClient({
+            baseUrl: `http://127.0.0.1:${port}`,
           })
 
           // Call session.fork() directly (mimicking TUI behavior)
           const startTime = Date.now()
-          const forkResult = await sdk.client.session.fork({
+          const forkResult = await sdk.session.fork({
             path: { sessionID: originalSession.id },
             body: {},
           })
@@ -50,7 +49,7 @@ describe("Fork Command Navigation E2E", () => {
           expect(messages.length).toBe(0)
 
           // Now send a message to the forked session (mimicking TUI sending /fork arguments)
-          await sdk.client.session.prompt({
+          await sdk.session.prompt({
             path: { sessionID: forkedSessionID },
             body: {
               agent: "build",
@@ -75,7 +74,7 @@ describe("Fork Command Navigation E2E", () => {
           const userMessage = forkedMessages.find((m) => m.info.role === "user")
           expect(userMessage).toBeDefined()
 
-          sdk.server.close()
+          // Clean up
         } finally {
           server.stop()
         }
@@ -98,13 +97,12 @@ describe("Fork Command Navigation E2E", () => {
         const server = Server.listen({ port, hostname: "127.0.0.1" })
 
         try {
-          const sdk = await createOpencode({
-            port,
-            hostname: "127.0.0.1",
+          const sdk = createOpencodeClient({
+            baseUrl: `http://127.0.0.1:${port}`,
           })
 
           // Fork first time
-          const fork1 = await sdk.client.session.fork({
+          const fork1 = await sdk.session.fork({
             path: { sessionID: originalSession.id },
             body: {},
           })
@@ -112,7 +110,7 @@ describe("Fork Command Navigation E2E", () => {
           expect(fork1.data!.parentID).toBe(originalSession.id)
 
           // Fork second time from original (not from fork1)
-          const fork2 = await sdk.client.session.fork({
+          const fork2 = await sdk.session.fork({
             path: { sessionID: originalSession.id },
             body: {},
           })
@@ -121,14 +119,14 @@ describe("Fork Command Navigation E2E", () => {
           expect(fork2.data!.id).not.toBe(fork1.data!.id)
 
           // Fork from fork1 (nested fork)
-          const fork3 = await sdk.client.session.fork({
+          const fork3 = await sdk.session.fork({
             path: { sessionID: fork1.data!.id },
             body: {},
           })
 
           expect(fork3.data!.parentID).toBe(fork1.data!.id)
 
-          sdk.server.close()
+          // Clean up
         } finally {
           server.stop()
         }
